@@ -11,16 +11,6 @@
 
 ---
 
-## 🎨 Premium Theme & UI Design
-The admin dashboard is styled with a custom **Zinc / Electric Blue & Sky Glow Premium Palette**, designed to be visually stunning, clean, and distinct:
-* **Background:** Deep obsidian dark mode (`#09090B`)
-* **Card Material:** Sleek dark card backings (`#18181B`) with subtle borders (`#27272A`)
-* **Accent Primary:** High-vibrancy Electric Blue (`#2563EB`)
-* **Accent Secondary:** Sky Glow (`#38BDF8`)
-* **Alert States:** Emerald Green (`#22C55E` for Praise/Resolved), Amber Orange (`#F59E0B` for Features), and Crimson Red (`#EF4444` for Critical Bugs).
-
----
-
 ## ⚡ Core AI/ML Features
 
 ### 🧠 1. Predictive ML Classifiers (Pillar 1)
@@ -62,7 +52,8 @@ feedloop-insight-board/
     │   ├── App.jsx              # React dashboard, charts, & RAG chat co-pilot
     │   ├── index.css            # Base styles and premium scrollbar coloring
     │   └── main.jsx             # React DOM bootstrapper
-    └── vite.config.js           # API proxy routing
+    ├── vite.config.js           # Proxy configuration mapping /api to port 8000
+    └── package.json             # Frontend script triggers
 ```
 
 ---
