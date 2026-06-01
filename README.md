@@ -7,7 +7,7 @@
 [![Vite](https://img.shields.io/badge/Vite-646CFF?style=for-the-badge&logo=vite&logoColor=white)](https://vitejs.dev/)
 [![Scikit-Learn](https://img.shields.io/badge/scikit--learn-%23F7931E.svg?style=for-the-badge&logo=scikit-learn&logoColor=white)](https://scikit-learn.org/)
 
-**FeedLoop AI** is a full-stack AI/ML administrative intelligence platform that ingests, classifies, and converses with raw, unstructured customer support tickets and review logs. It combines classical machine learning, natural language processing, a custom vector search database (RAG), and generative AI co-pilots in a single dashboard.
+**FeedLoop AI** is a full-stack administrative operations engine that automates the audit, classification, and analysis of raw customer support logs and review texts. It combines traditional machine learning, natural language processing, a custom local vector database (RAG), and generative AI co-pilots in a single React administrative dashboard.
 
 ---
 
@@ -34,7 +34,66 @@ Instead of basic keyword matching, FeedLoop utilizes custom-trained machine lear
 
 ---
 
-## 🛠️ Project Architecture
+## 📋 API Endpoints Reference
+
+| HTTP Method | Route | Description | Request Payload | Response Schema |
+| :--- | :--- | :--- | :--- | :--- |
+| **POST** | `/api/feedback/submit` | Analyzes and ingests a raw support log into the database and vector store. | `{"raw_text": str, "source": str, "customer_email": str}` | Ingested `FeedbackItem` object with category/type predictions. |
+| **GET** | `/api/feedback/stats` | Fetches aggregated statistics, average urgency scores, and distribution counts. | *None* | `{"total_count": int, "bug_count": int, "category_distribution": dict, ...}` |
+| **GET** | `/api/feedback/list` | Returns sorted support tickets. Supports filtering by category, type, and status. | Query parameters: `?category=x&feedback_type=y&status=z` | Array of `FeedbackItem` objects sorted by urgency score. |
+| **POST** | `/api/feedback/{id}/status` | Updates the status of a specific ticket (New, Reviewed, In-Progress, Resolved). | `{"status": str}` | Updated `FeedbackItem` object. |
+| **POST** | `/api/roadmap/generate` | Generates a prioritized engineering sprint roadmap from unresolved defects. | *None* | `{"roadmap": "markdown string"}` |
+| **POST** | `/api/chat` | Performs semantic vector search on ticket logs and generates summarized replies. | `{"query": str}` | `{"answer": str, "sources": [{"document": dict, "score": float}]}` |
+| **POST** | `/api/feedback/clear` | Wipes the entire database table and resets the local vector index. | *None* | `{"detail": str}` |
+
+---
+
+## 🗄️ Database Schema Structure
+
+All tickets are written to your local PostgreSQL instance under the table `feedback_items`:
+
+| Column Name | Data Type | Constraint | Description |
+| :--- | :--- | :--- | :--- |
+| `id` | `Integer` | Primary Key, Indexed | Auto-incrementing identifier. |
+| `raw_text` | `Text` | Not Null | Original support text or review log. |
+| `source` | `String(50)` | Default: `'App Store'` | Ingestion source (iOS App, Play Store, etc.). |
+| `customer_email`| `String(100)`| Nullable | Submitter contact details. |
+| `category` | `String(50)` | Default: `'Others'` | ML Predicted: `Login`, `Payment`, `UI/UX`, `Performance`, `Others`. |
+| `feedback_type` | `String(50)` | Default: `'Bug'` | ML Predicted: `Bug`, `Feature Request`, `Praise`. |
+| `urgency_score` | `Integer` | Default: `1` | Predictive NLP rating from `1` (lowest) to `5` (highest). |
+| `ai_summary` | `String(255)`| Nullable | Concise AI trimer (under 10 words). |
+| `status` | `String(50)` | Default: `'New'` | Ticket state: `New`, `Reviewed`, `In-Progress`, `Resolved`. |
+| `created_at` | `DateTime` | Default: `utcnow` | Server-side ingestion timestamp. |
+
+---
+
+## 🧠 Local AI/ML Workflow
+
+### 1. Classification Training Pipeline (`train_model.py`)
+- Standardizes text features using **TF-IDF Term Frequency Vectorization** with n-grams `(1, 2)`.
+- Fits two independent supervised **Logistic Regression** classifiers.
+- Serializes pipeline weights using `joblib` into `backend/models/`.
+
+### 2. Conversational RAG Engine (`vector_store.py`)
+```text
+[User Chat Query] 
+       │
+       ▼
+ [Vectorization]  ──► [TF-IDF Feature Mapping]
+       │
+       ▼
+ [Cosine Similarity Index] ──► Compare query coordinates against database logs
+       │
+       ▼
+ [Top K Retrieval]  ──► Grabs matches with highest match score percentages
+       │
+       ▼
+ [Generative Answer] ──► Summarizes context and returns sources to UI
+```
+
+---
+
+## 🛠️ Project Directory Tree
 
 ```text
 feedloop-insight-board/
@@ -50,7 +109,7 @@ feedloop-insight-board/
 └── frontend/
     ├── src/
     │   ├── App.jsx              # React dashboard, charts, & RAG chat co-pilot
-    │   ├── index.css            # Base styles and premium scrollbar coloring
+    │   ├── index.css            # Base styles and custom scrollbar tracks
     │   └── main.jsx             # React DOM bootstrapper
     ├── vite.config.js           # Proxy configuration mapping /api to port 8000
     └── package.json             # Frontend script triggers
@@ -83,7 +142,7 @@ python train_model.py
 # 2. Start the FastAPI server
 uvicorn main:app --reload
 ```
-* Interactive Swagger API documentation will run at: `http://127.0.0.1:8000/docs`
+* Swagger API documentation: `http://127.0.0.1:8000/docs`
 
 ### 2. Frontend Setup & Run
 ```bash
