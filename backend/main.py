@@ -301,3 +301,14 @@ def chat_with_tickets(request: ChatRequest):
         "answer": answer,
         "sources": matches
     }
+
+@app.post("/api/feedback/clear")
+def clear_feedback(db: Session = Depends(get_db)):
+    try:
+        db.query(FeedbackItem).delete()
+        db.commit()
+        vector_store.rebuild_index([])
+        return {"detail": "Database and vector store index cleared successfully."}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Error resetting database: {e}")

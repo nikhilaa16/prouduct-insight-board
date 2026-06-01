@@ -6,7 +6,7 @@ import {
 } from 'recharts';
 import { 
   MessageSquare, AlertTriangle, Lightbulb, Star, Filter, 
-  Send, RefreshCw, Layers, CheckCircle2, Database, Search
+  Send, RefreshCw, Layers, CheckCircle2, Database, Search, Trash2
 } from 'lucide-react';
 
 export default function App() {
@@ -172,6 +172,24 @@ export default function App() {
     }
   };
 
+  // Handle Clear Database
+  const handleClearDatabase = async () => {
+    if (!window.confirm("Are you sure you want to delete all tickets and reset the database?")) return;
+    try {
+      await axios.post('/api/feedback/clear');
+      setChatHistory([
+        {
+          role: 'assistant',
+          text: "Hello! I am your AI Co-Pilot. Ask me anything about your customer support logs (e.g. 'Are there any checkout bugs?' or 'What are the main performance issues?')."
+        }
+      ]);
+      await fetchData();
+    } catch (err) {
+      console.error("Error clearing database:", err);
+      alert("Error resetting database.");
+    }
+  };
+
   // Theme Constants (Zinc / Electric Blue & Sky Glow Premium Palette)
   const THEME = {
     bg: 'bg-[#09090B]',
@@ -240,6 +258,13 @@ export default function App() {
             title="Refresh Data"
           >
             <RefreshCw className="h-4 w-4" />
+          </button>
+          <button 
+            onClick={handleClearDatabase} 
+            className="p-2 text-slate-400 hover:text-[#EF4444] hover:bg-[#EF4444]/10 rounded-lg border border-[#27272A] hover:border-[#EF4444]/20 transition-all duration-200"
+            title="Reset Database"
+          >
+            <Trash2 className="h-4 w-4" />
           </button>
         </div>
       </header>
