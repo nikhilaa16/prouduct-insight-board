@@ -22,8 +22,9 @@ if (isMockMode) {
           {
             id: 1,
             raw_text: "The payment gateway keeps crashing when checking out with Apple Pay.",
-            predicted_category: "Billing & Payment",
-            predicted_type: "Bug / Issue",
+            ai_summary: "Apple Pay Checkout Crash",
+            category: "Billing & Payment",
+            feedback_type: "Bug / Issue",
             sentiment_polarity: -0.8,
             urgency_score: 5,
             status: "OPEN",
@@ -34,8 +35,9 @@ if (isMockMode) {
           {
             id: 2,
             raw_text: "I love the dark mode interface, it's very sleek. Could we add search functionality?",
-            predicted_category: "User Interface",
-            predicted_type: "Feature Request",
+            ai_summary: "UI Dark Mode & Search Request",
+            category: "User Interface",
+            feedback_type: "Feature Request",
             sentiment_polarity: 0.8,
             urgency_score: 2,
             status: "OPEN",
@@ -46,8 +48,9 @@ if (isMockMode) {
           {
             id: 3,
             raw_text: "Customer service was very slow to respond to my subscription issue.",
-            predicted_category: "Customer Support",
-            predicted_type: "Bug / Issue",
+            ai_summary: "Slow Support for Subscription Issue",
+            category: "Customer Support",
+            feedback_type: "Bug / Issue",
             sentiment_polarity: -0.5,
             urgency_score: 3,
             status: "OPEN",
@@ -75,16 +78,16 @@ if (isMockMode) {
       const items = getMockItems();
       const stats = {
         total_count: items.length,
-        bug_count: items.filter(i => i.predicted_type === 'Bug / Issue').length,
-        feature_count: items.filter(i => i.predicted_type === 'Feature Request').length,
-        praise_count: items.filter(i => i.predicted_type === 'Praise / Positive').length,
+        bug_count: items.filter(i => i.feedback_type === 'Bug / Issue').length,
+        feature_count: items.filter(i => i.feedback_type === 'Feature Request').length,
+        praise_count: items.filter(i => i.feedback_type === 'Praise / Positive').length,
         average_urgency: items.length > 0 ? parseFloat((items.reduce((acc, curr) => acc + curr.urgency_score, 0) / items.length).toFixed(1)) : 0.0,
         category_distribution: items.reduce((acc, curr) => {
-          acc[curr.predicted_category] = (acc[curr.predicted_category] || 0) + 1;
+          acc[curr.category] = (acc[curr.category] || 0) + 1;
           return acc;
         }, {}),
         type_distribution: items.reduce((acc, curr) => {
-          acc[curr.predicted_type] = (acc[curr.predicted_type] || 0) + 1;
+          acc[curr.feedback_type] = (acc[curr.feedback_type] || 0) + 1;
           return acc;
         }, {})
       };
@@ -118,11 +121,15 @@ if (isMockMode) {
         sentiment = 0.1;
       }
       
+      let summary = text.split('. ')[0].substring(0, 50);
+      if (summary.length < text.length) summary += "...";
+      
       const newItem = {
         id: items.length + 1,
         raw_text: text,
-        predicted_category: category,
-        predicted_type: type,
+        ai_summary: summary,
+        category: category,
+        feedback_type: type,
         sentiment_polarity: sentiment,
         urgency_score: urgency,
         status: "OPEN",
@@ -152,8 +159,8 @@ if (isMockMode) {
     
     if (url.startsWith('/api/roadmap/generate') && method === 'post') {
       const items = getMockItems();
-      const openBugs = items.filter(i => i.status === 'OPEN' && i.predicted_type === 'Bug / Issue');
-      const features = items.filter(i => i.predicted_type === 'Feature Request');
+      const openBugs = items.filter(i => i.status === 'OPEN' && i.feedback_type === 'Bug / Issue');
+      const features = items.filter(i => i.feedback_type === 'Feature Request');
       
       const roadmapText = `🚀 GENERATED MOCK SPRINT PLANNING ROADMAP\n\n` +
         `Phase 1: Critical Bug Fixes (Next 48 Hours)\n` +
@@ -185,12 +192,12 @@ if (isMockMode) {
       
       return { 
         data: { 
-          response: reply,
-          matches: matches.map(m => ({
-            id: m.id,
-            text: m.raw_text,
-            category: m.predicted_category,
-            type: m.predicted_type,
+          answer: reply,
+          sources: matches.map(m => ({
+            document: {
+              id: m.id,
+              text: m.raw_text
+            },
             score: 0.92
           }))
         }, 
