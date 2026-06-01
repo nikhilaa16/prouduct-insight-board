@@ -5,13 +5,14 @@
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-316192?style=for-the-badge&logo=postgresql&logoColor=white)](https://www.postgresql.org/)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white)](https://tailwindcss.com/)
 [![Vite](https://img.shields.io/badge/Vite-646CFF?style=for-the-badge&logo=vite&logoColor=white)](https://vitejs.dev/)
+[![Scikit-Learn](https://img.shields.io/badge/scikit--learn-%23F7931E.svg?style=for-the-badge&logo=scikit-learn&logoColor=white)](https://scikit-learn.org/)
 
-**FeedLoop AI** is a state-of-the-art administrative intelligence engine designed to automatically audit, classify, and prioritize raw customer feedback, reviews, and support logs. By parsing user feedback, it extracts categories, issue types, and urgency scores to empower engineering and product teams with structured, actionable insights.
+**FeedLoop AI** is a full-stack AI/ML administrative intelligence platform that ingests, classifies, and converses with raw, unstructured customer support tickets and review logs. It combines classical machine learning, natural language processing, a custom vector search database (RAG), and generative AI co-pilots in a single dashboard.
 
 ---
 
 ## 🎨 Premium Theme & UI Design
-The admin dashboard is styled using a custom **Zinc / Electric Blue & Sky Glow Premium Palette**, designed to be visually stunning, clean, and completely distinct from standard templates:
+The admin dashboard is styled with a custom **Zinc / Electric Blue & Sky Glow Premium Palette**, designed to be visually stunning, clean, and distinct:
 * **Background:** Deep obsidian dark mode (`#09090B`)
 * **Card Material:** Sleek dark card backings (`#18181B`) with subtle borders (`#27272A`)
 * **Accent Primary:** High-vibrancy Electric Blue (`#2563EB`)
@@ -20,33 +21,48 @@ The admin dashboard is styled using a custom **Zinc / Electric Blue & Sky Glow P
 
 ---
 
-## ⚡ Core Features
+## ⚡ Core AI/ML Features
 
-* 📥 **Support Ticket Ingestion:** Ingest raw customer messages from the App Store, Play Store, Web Portal, iOS App, or Email Support.
-* 🧠 **AI Classification & Classification Engine:** Automatically tags issues as **Bug**, **Feature Request**, or **Praise**, maps them to categories (**Login**, **Payment**, **UI/UX**, **Performance**, or **Others**), and assigns a strict **Urgency Score (1 to 5)**.
-* 📊 **Interactive Analytics Board:** Real-time graphs powered by **Recharts** detailing **Category Load** (bar charts with custom tooltips) and **Issue Mix** (donut chart distribution).
-* 📋 **Live Ticket Queue:** Powerful filtering by category, issue type, and search queries with inline status changes (New, Reviewed, In-Progress, Resolved) backed directly by SQL transaction writes.
-* 🤖 **AI Sprint Co-Pilot:** Compiles unresolved defects and feature requests into prioritized engineering sprint roadmaps instantly.
+### 🧠 1. Predictive ML Classifiers (Pillar 1)
+Instead of basic keyword matching, FeedLoop utilizes custom-trained machine learning pipelines to predict metadata from raw text:
+* **Category Classifier:** Classifies logs into `Login`, `Payment`, `UI/UX`, `Performance`, or `Others`.
+* **Issue Type Classifier:** Classifies logs into `Bug`, `Feature Request`, or `Praise`.
+* **Tech Stack:** Scikit-Learn `TfidfVectorizer` (feature extraction) + `LogisticRegression` (supervised classification). Models are serialized locally via `joblib`.
+
+### 📈 2. NLP Sentiment-Based Urgency Mapping (Pillar 1)
+* Automatically determines customer frustration levels using **TextBlob NLP Sentiment Polarity**.
+* Maps negative polarity to elevated **Urgency Scores (1 to 5)**.
+* Utilizes a hybrid model-rule backup to immediately flag critical operational keywords (e.g. `crashes`, `broken`, `billing failed`).
+
+### 💬 3. Conversational RAG Search Engine (Pillar 2)
+* Includes a built-in semantic chatbot letting administrators chat with ticket databases in natural language.
+* Uses a **custom, pure-Python local Vector Database (`vector_store.py`)** that calculates **Cosine Similarity** to index and retrieve matching sources (no complex C++ compilation or cloud costs).
+* Combines matching sources as grounded context for a generated co-pilot response, complete with citation badges showing similarity scores.
+
+### 🤖 4. AI Sprint Co-Pilot (Pillar 3)
+* Groups unresolved database tickets and generates structured, professional **Engineering Sprint Plans** and timeline recommendations using Gemini (or a smart local markdown fallback).
 
 ---
 
-## 🛠️ Tech Stack & Architecture
+## 🛠️ Project Architecture
 
 ```text
 feedloop-insight-board/
 ├── backend/
-│   ├── database.py              # PostgreSQL SQLAlchemy ORM configurations
-│   ├── ai_classifier.py         # AI extraction & simulation pipeline
-│   ├── main.py                  # FastAPI REST API layer
-│   ├── requirements.txt         # Backend python packages
-│   └── test_api.py              # End-to-end API test script
+│   ├── models/                  # Serialized ML model pipelines (.pkl)
+│   ├── database.py              # PostgreSQL database & SQLAlchemy ORM mapping
+│   ├── ai_classifier.py         # Model loader & TextBlob sentiment Urgency scoring
+│   ├── vector_store.py          # Custom local vector database & Cosine Similarity search
+│   ├── train_model.py           # Offline Scikit-Learn classifier training pipeline
+│   ├── main.py                  # FastAPI REST API endpoints
+│   ├── requirements.txt         # Backend Python dependencies
+│   └── test_api.py              # E2E API test script
 └── frontend/
     ├── src/
-    │   ├── App.jsx              # React dashboard container & custom theme variables
-    │   ├── index.css            # Custom base scrollbars and typography
-    │   └── main.jsx             # React client entry point
-    ├── vite.config.js           # Proxy configuration mapping /api to port 8000
-    └── package.json             # Frontend script triggers
+    │   ├── App.jsx              # React dashboard, charts, & RAG chat co-pilot
+    │   ├── index.css            # Base styles and premium scrollbar coloring
+    │   └── main.jsx             # React DOM bootstrapper
+    └── vite.config.js           # API proxy routing
 ```
 
 ---
@@ -56,40 +72,37 @@ feedloop-insight-board/
 ### Prerequisites
 * **Python 3.13+**
 * **Node.js 18+**
-* Running instance of **PostgreSQL** (with a database named `feedloop_db` created).
+* Running instance of **PostgreSQL** (with database `feedloop_db` created).
 
-### 1. Backend Setup & Run
-Configure your PostgreSQL connection parameters in `backend/database.py` (defaults to local connection details).
-
+### 1. Backend Setup & Model Training
 ```bash
 # Navigate to the backend directory
 cd backend
 
-# Create a virtual environment
+# Create and activate virtual environment
 python -m venv .venv
-
-# Activate the virtual environment (Windows)
 .venv\Scripts\activate
 
 # Install dependencies
 pip install -r requirements.txt
 
-# Start the FastAPI Server
+# 1. TRAIN LOCAL ML MODELS (Required before starting server)
+python train_model.py
+
+# 2. Start the FastAPI server
 uvicorn main:app --reload
 ```
-* Swagger interactive docs will be available at: `http://127.0.0.1:8000/docs`
+* Interactive Swagger API documentation will run at: `http://127.0.0.1:8000/docs`
 
 ### 2. Frontend Setup & Run
-The frontend is built on React + Vite and proxies requests to the FastAPI backend.
-
 ```bash
 # Navigate to the frontend directory
 cd ../frontend
 
-# Install dependencies
+# Install node dependencies
 npm install
 
-# Run Vite in development mode
+# Run the React client in dev mode
 npm run dev
 ```
 * Open your browser and navigate to: `http://localhost:5173/`
@@ -99,19 +112,13 @@ To bundle the frontend for production:
 ```bash
 npm run build
 ```
-This builds optimized HTML, CSS, and JS chunks into the `frontend/dist` directory.
 
 ---
 
-## 🧪 Automated Testing
+## 🧪 Automated Verification Testing
 
-We have built a dedicated integration test suite to verify the database connectivity, API request lifecycle, and schema validation. Run it using:
+Verify all systems (Ingestion predictions, stats, roadmap planner, and Conversational RAG queries) are functional by running:
 ```bash
 cd backend
 python test_api.py
 ```
-
----
-
-## 📄 License
-This project is licensed under the MIT License. Developed for customer success engineering.
