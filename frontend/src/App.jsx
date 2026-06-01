@@ -17,52 +17,62 @@ if (isMockMode) {
     
     const getMockItems = () => {
       const stored = localStorage.getItem('mock_feedloop_items');
-      if (!stored) {
-        const defaults = [
-          {
-            id: 1,
-            raw_text: "The payment gateway keeps crashing when checking out with Apple Pay.",
-            ai_summary: "Apple Pay Checkout Crash",
-            category: "Billing & Payment",
-            feedback_type: "Bug / Issue",
-            sentiment_polarity: -0.8,
-            urgency_score: 5,
-            status: "OPEN",
-            source: "App Store",
-            creator_email: "john@apple.com",
-            created_at: new Date().toISOString()
-          },
-          {
-            id: 2,
-            raw_text: "I love the dark mode interface, it's very sleek. Could we add search functionality?",
-            ai_summary: "UI Dark Mode & Search Request",
-            category: "User Interface",
-            feedback_type: "Feature Request",
-            sentiment_polarity: 0.8,
-            urgency_score: 2,
-            status: "OPEN",
-            source: "Email Support",
-            creator_email: "lisa@gmail.com",
-            created_at: new Date().toISOString()
-          },
-          {
-            id: 3,
-            raw_text: "Customer service was very slow to respond to my subscription issue.",
-            ai_summary: "Slow Support for Subscription Issue",
-            category: "Customer Support",
-            feedback_type: "Bug / Issue",
-            sentiment_polarity: -0.5,
-            urgency_score: 3,
-            status: "OPEN",
-            source: "Web Feedback",
-            creator_email: "bob@yahoo.com",
-            created_at: new Date().toISOString()
+      if (stored) {
+        try {
+          const items = JSON.parse(stored);
+          if (items.length > 0 && !items[0].hasOwnProperty('ai_summary')) {
+            localStorage.removeItem('mock_feedloop_items');
+          } else {
+            return items;
           }
-        ];
-        localStorage.setItem('mock_feedloop_items', JSON.stringify(defaults));
-        return defaults;
+        } catch (e) {
+          localStorage.removeItem('mock_feedloop_items');
+        }
       }
-      return JSON.parse(stored);
+
+      const defaults = [
+        {
+          id: 1,
+          raw_text: "The payment gateway keeps crashing when checking out with Apple Pay.",
+          ai_summary: "Apple Pay Checkout Crash",
+          category: "Billing & Payment",
+          feedback_type: "Bug / Issue",
+          sentiment_polarity: -0.8,
+          urgency_score: 5,
+          status: "OPEN",
+          source: "App Store",
+          creator_email: "john@apple.com",
+          created_at: new Date().toISOString()
+        },
+        {
+          id: 2,
+          raw_text: "I love the dark mode interface, it's very sleek. Could we add search functionality?",
+          ai_summary: "UI Dark Mode & Search Request",
+          category: "User Interface",
+          feedback_type: "Feature Request",
+          sentiment_polarity: 0.8,
+          urgency_score: 2,
+          status: "OPEN",
+          source: "Email Support",
+          creator_email: "lisa@gmail.com",
+          created_at: new Date().toISOString()
+        },
+        {
+          id: 3,
+          raw_text: "Customer service was very slow to respond to my subscription issue.",
+          ai_summary: "Slow Support for Subscription Issue",
+          category: "Customer Support",
+          feedback_type: "Bug / Issue",
+          sentiment_polarity: -0.5,
+          urgency_score: 3,
+          status: "OPEN",
+          source: "Web Feedback",
+          creator_email: "bob@yahoo.com",
+          created_at: new Date().toISOString()
+        }
+      ];
+      localStorage.setItem('mock_feedloop_items', JSON.stringify(defaults));
+      return defaults;
     };
     
     const setMockItems = (items) => {
