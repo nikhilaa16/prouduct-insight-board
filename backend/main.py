@@ -20,10 +20,24 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Initialize database schema on startup
+# Initialize database and vector store
+from vector_store import LocalVectorStore
+vector_store = LocalVectorStore()
+
 @app.on_event("startup")
 def startup_event():
     init_db()
+    # Load or rebuild vector index
+    if not vector_store.load():
+        print("Rebuilding vector database index from database tickets...")
+        db = next(get_db())
+        try:
+            tickets = db.query(FeedbackItem).all()
+            vector_store.rebuild_index(tickets)
+        except Exception as e:
+            print(f"Error rebuilding vector store index: {e}")
+        finally:
+            db.close()
 
 # Pydantic validation schemas for API inputs
 class FeedbackSubmitRequest(BaseModel):
@@ -59,6 +73,19 @@ def submit_feedback(request: FeedbackSubmitRequest, db: Session = Depends(get_db
     db.add(db_item)
     db.commit()
     db.refresh(db_item)
+    
+    # 3. Add to vector store index
+    try:
+        metadata = {
+            "category": db_item.category,
+            "feedback_type": db_item.feedback_type,
+            "urgency_score": db_item.urgency_score,
+            "status": db_item.status
+        }
+        vector_store.add_document(db_item.id, db_item.raw_text, metadata)
+    except Exception as e:
+        print(f"Error adding to vector store: {e}")
+        
     return db_item
 
 @app.get("/api/feedback/stats")
@@ -210,3 +237,67 @@ Based on automated classification of {len(unresolved_bugs)} unresolved support t
 * **Testing:** 30% of bandwidth allocated to validating hotfixes on local environments before production releases.
 """
     return {"roadmap": roadmap_markdown}
+
+# Chat Request Schema
+class ChatRequest(BaseModel):
+    query: str
+
+@app.post("/api/chat")
+def chat_with_tickets(request: ChatRequest):
+    if not request.query.strip():
+        raise HTTPException(status_code=400, detail="Query cannot be empty.")
+    
+    # 1. Search semantic matches in local vector database
+    matches = vector_store.search(request.query, top_k=3)
+    
+    # 2. Build retrieved context string
+    context_texts = []
+    for match in matches:
+        doc = match["document"]
+        score = match["score"]
+        context_texts.append(
+            f"- [Similarity: {score*100:.1f}%] {doc['text']} "
+            f"(Category: {doc['metadata']['category']}, Type: {doc['metadata']['feedback_type']}, Status: {doc['metadata']['status']})"
+        )
+    context_str = "\n".join(context_texts) if context_texts else "No matching support tickets found."
+    
+    # 3. Check for Gemini API key to run RAG summary
+    api_key = os.environ.get("GEMINI_API_KEY")
+    if api_key:
+        try:
+            import google.generativeai as genai
+            genai.configure(api_key=api_key)
+            model = genai.GenerativeModel('gemini-1.5-flash')
+            
+            prompt = f"""
+            You are a technical support co-pilot. Answer the administrator's query based on the following relevant customer support tickets retrieved from the vector database:
+            
+            Query: "{request.query}"
+            
+            Retrieved Context:
+            {context_str}
+            
+            Draft a helpful, concise answer to the query under 100 words. Point out any trends or key items if they are present in the context. If no relevant context is present, state that you couldn't find any relevant support tickets.
+            """
+            response = model.generate_content(prompt)
+            return {
+                "answer": response.text.strip(),
+                "sources": matches
+            }
+        except Exception as e:
+            print(f"Gemini RAG chat failed, falling back to local: {e}")
+            
+    # Local fallback structured output
+    if not matches:
+        answer = "I searched the vector database but couldn't find any relevant customer support tickets matching your query."
+    else:
+        answer = f"I found {len(matches)} relevant support tickets matching your query. Here is a summary of the matches:\n\n"
+        for match in matches:
+            doc = match["document"]
+            score = match["score"]
+            answer += f"• **[{doc['metadata']['category']}]** {doc['text']} (Match: {score*100:.0f}%, Urgency: {doc['metadata']['urgency_score']}/5, Status: {doc['metadata']['status']})\n"
+            
+    return {
+        "answer": answer,
+        "sources": matches
+    }

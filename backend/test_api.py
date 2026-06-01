@@ -91,6 +91,26 @@ def test_api():
         print(f"Error: {res.text}")
         return
 
+    # 5. Test Conversational RAG Chat
+    print("\n6. Testing Conversational RAG Chat...")
+    chat_payload = {
+        "query": "Is there any bug reported regarding checkout page failures?"
+    }
+    res = requests.post(f"{BASE_URL}/api/chat", json=chat_payload)
+    print(f"Status Code: {res.status_code}")
+    if res.status_code == 200:
+        chat_res = res.json()
+        print("\n=== AI CO-PILOT RESPONSE ===")
+        print(chat_res["answer"])
+        print("\n=== RETRIEVED SOURCES ===")
+        for match in chat_res["sources"]:
+            doc = match["document"]
+            print(f"  - [Score: {match['score']*100:.1f}%] [{doc['metadata']['category']}] {doc['text']}")
+        print("=============================")
+    else:
+        print(f"Error: {res.text}")
+        return
+
     print("\n=== VERIFICATION SUCCESSFULLY COMPLETED! ===")
 
 if __name__ == "__main__":

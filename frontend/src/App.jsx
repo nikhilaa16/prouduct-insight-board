@@ -38,6 +38,16 @@ export default function App() {
   const [roadmap, setRoadmap] = useState('');
   const [roadmapLoading, setRoadmapLoading] = useState(false);
 
+  // Chat states
+  const [chatQuery, setChatQuery] = useState('');
+  const [chatLoading, setChatLoading] = useState(false);
+  const [chatHistory, setChatHistory] = useState([
+    {
+      role: 'assistant',
+      text: "Hello! I am your AI Co-Pilot. Ask me anything about your customer support logs (e.g. 'Are there any checkout bugs?' or 'What are the main performance issues?')."
+    }
+  ]);
+
   // Load Data
   const fetchData = async () => {
     try {
@@ -130,6 +140,35 @@ export default function App() {
       console.error("Error generating roadmap:", err);
     } finally {
       setRoadmapLoading(false);
+    }
+  };
+
+  // Handle Chat Submit
+  const handleChatSubmit = async (e) => {
+    e.preventDefault();
+    if (!chatQuery.trim() || chatLoading) return;
+    
+    const userMessage = { role: 'user', text: chatQuery };
+    setChatHistory(prev => [...prev, userMessage]);
+    setChatQuery('');
+    setChatLoading(true);
+
+    try {
+      const res = await axios.post('/api/chat', { query: userMessage.text });
+      const assistantMessage = {
+        role: 'assistant',
+        text: res.data.answer,
+        sources: res.data.sources
+      };
+      setChatHistory(prev => [...prev, assistantMessage]);
+    } catch (err) {
+      console.error("Error communicating with chat API:", err);
+      setChatHistory(prev => [
+        ...prev,
+        { role: 'assistant', text: "Error: Failed to connect to the AI search engine." }
+      ]);
+    } finally {
+      setChatLoading(false);
     }
   };
 
@@ -403,6 +442,81 @@ export default function App() {
 
             </section>
           )}
+
+          {/* Conversational AI Chat Panel */}
+          <section className="bg-[#18181B]/80 backdrop-blur-sm border border-[#27272A] rounded-2xl p-6 shadow-xl flex flex-col gap-4 relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-[#38BDF8]/5 rounded-full blur-3xl pointer-events-none"></div>
+            
+            <div className="flex justify-between items-center border-b border-[#27272A] pb-3">
+              <h2 className="text-md font-semibold text-slate-200 flex items-center gap-2">
+                <MessageSquare className="h-4 w-4 text-[#38BDF8]" />
+                Conversational RAG Chat Co-Pilot
+              </h2>
+              <span className="text-[10px] bg-[#38BDF8]/10 text-[#38BDF8] border border-[#38BDF8]/20 px-2 py-0.5 rounded-full font-bold">
+                Local Semantic Index
+              </span>
+            </div>
+
+            {/* Chat Output Window */}
+            <div className="flex flex-col gap-3 h-48 overflow-y-auto pr-1 text-xs">
+              {chatHistory.map((msg, index) => (
+                <div key={index} className={`flex flex-col gap-1.5 ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
+                  <div className={`px-3 py-2 rounded-2xl max-w-[85%] leading-relaxed ${
+                    msg.role === 'user' 
+                      ? 'bg-gradient-to-tr from-[#2563EB] to-[#38BDF8] text-white rounded-tr-none font-medium' 
+                      : 'bg-[#09090B]/60 border border-[#27272A] text-slate-200 rounded-tl-none'
+                  }`}>
+                    <p className="whitespace-pre-wrap">{msg.text}</p>
+                    
+                    {/* Render matching sources if present */}
+                    {msg.sources && msg.sources.length > 0 && (
+                      <div className="mt-2 pt-2 border-t border-[#27272A] flex flex-col gap-1">
+                        <span className="text-[10px] text-[#38BDF8] font-bold uppercase tracking-wider">Semantic Sources:</span>
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {msg.sources.map((src, srcIdx) => (
+                            <span 
+                              key={srcIdx} 
+                              className="text-[9px] bg-[#27272A]/50 border border-[#27272A] text-slate-400 px-1.5 py-0.5 rounded font-mono"
+                              title={src.document.text}
+                            >
+                              #{src.document.id} ({Math.round(src.score * 100)}%)
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+              {chatLoading && (
+                <div className="flex items-start">
+                  <div className="px-3 py-2 rounded-2xl rounded-tl-none bg-[#09090B]/60 border border-[#27272A] text-slate-400 flex items-center gap-2">
+                    <RefreshCw className="h-3 w-3 animate-spin text-[#38BDF8]" />
+                    <span>Searching vector database...</span>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Chat Input Bar */}
+            <form onSubmit={handleChatSubmit} className="flex gap-2">
+              <input
+                type="text"
+                required
+                value={chatQuery}
+                onChange={(e) => setChatQuery(e.target.value)}
+                placeholder="Ask AI Co-Pilot: 'Are there reports of payment errors?'"
+                className="flex-1 text-xs bg-[#09090B]/70 border border-[#27272A] rounded-xl px-3 py-2 text-slate-200 placeholder-slate-650 focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] transition-all duration-200"
+              />
+              <button
+                type="submit"
+                disabled={chatLoading}
+                className="bg-gradient-to-r from-[#2563EB] to-[#38BDF8] hover:brightness-110 p-2.5 rounded-xl text-white transition-all duration-200 active:scale-95 disabled:opacity-50 flex items-center justify-center"
+              >
+                <Send className="h-4 w-4 text-white" />
+              </button>
+            </form>
+          </section>
 
           {/* Ticket Queue */}
           <section className="bg-[#18181B]/80 backdrop-blur-sm border border-[#27272A] rounded-2xl p-6 shadow-xl flex-1 flex flex-col">
