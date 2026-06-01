@@ -54,6 +54,7 @@ class LocalVectorStore:
         
         if not self.documents:
             self.vectors = None
+            self.save()
             return
 
         texts = [doc["text"] for doc in self.documents]
