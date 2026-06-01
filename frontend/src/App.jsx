@@ -17,80 +17,154 @@ if (isMockMode) {
     
     const getMockItems = () => {
       const stored = localStorage.getItem('mock_feedloop_items');
+      let items = [];
+      let needsReset = false;
+      
       if (stored) {
         try {
-          const items = JSON.parse(stored);
-          if (items.length > 0 && !items[0].hasOwnProperty('ai_summary')) {
-            localStorage.removeItem('mock_feedloop_items');
-          } else {
-            return items;
+          items = JSON.parse(stored);
+          if (!Array.isArray(items)) {
+            items = [];
+            needsReset = true;
           }
         } catch (e) {
-          localStorage.removeItem('mock_feedloop_items');
+          needsReset = true;
         }
+      } else {
+        needsReset = true;
       }
-
-      const defaults = [
-        {
-          id: 1,
-          raw_text: "The payment gateway keeps crashing when checking out with Apple Pay.",
-          ai_summary: "Apple Pay Checkout Crash",
-          category: "Billing & Payment",
-          feedback_type: "Bug / Issue",
-          sentiment_polarity: -0.8,
-          urgency_score: 5,
-          status: "OPEN",
-          source: "App Store",
-          creator_email: "john@apple.com",
-          created_at: new Date().toISOString()
-        },
-        {
-          id: 2,
-          raw_text: "I love the dark mode interface, it's very sleek. Could we add search functionality?",
-          ai_summary: "UI Dark Mode & Search Request",
-          category: "User Interface",
-          feedback_type: "Feature Request",
-          sentiment_polarity: 0.8,
-          urgency_score: 2,
-          status: "OPEN",
-          source: "Email Support",
-          creator_email: "lisa@gmail.com",
-          created_at: new Date().toISOString()
-        },
-        {
-          id: 3,
-          raw_text: "Customer service was very slow to respond to my subscription issue.",
-          ai_summary: "Slow Support for Subscription Issue",
-          category: "Customer Support",
-          feedback_type: "Bug / Issue",
-          sentiment_polarity: -0.5,
-          urgency_score: 3,
-          status: "OPEN",
-          source: "Web Feedback",
-          creator_email: "bob@yahoo.com",
-          created_at: new Date().toISOString()
+      
+      if (needsReset || items.length === 0) {
+        const defaults = [
+          {
+            id: 1,
+            raw_text: "The payment gateway keeps crashing when checking out with Apple Pay.",
+            ai_summary: "Apple Pay Checkout Crash",
+            category: "Payment",
+            feedback_type: "Bug",
+            sentiment_polarity: -0.8,
+            urgency_score: 5,
+            status: "New",
+            source: "App Store",
+            creator_email: "john@apple.com",
+            created_at: new Date().toISOString()
+          },
+          {
+            id: 2,
+            raw_text: "I love the dark mode interface, it's very sleek. Could we add search functionality?",
+            ai_summary: "UI Dark Mode & Search Request",
+            category: "UI/UX",
+            feedback_type: "Feature Request",
+            sentiment_polarity: 0.8,
+            urgency_score: 2,
+            status: "New",
+            source: "Email Support",
+            creator_email: "lisa@gmail.com",
+            created_at: new Date().toISOString()
+          },
+          {
+            id: 3,
+            raw_text: "Customer service was very slow to respond to my subscription issue.",
+            ai_summary: "Slow Support for Subscription Issue",
+            category: "Others",
+            feedback_type: "Bug",
+            sentiment_polarity: -0.5,
+            urgency_score: 3,
+            status: "New",
+            source: "Web Feedback",
+            creator_email: "bob@yahoo.com",
+            created_at: new Date().toISOString()
+          }
+        ];
+        localStorage.setItem('mock_feedloop_items', JSON.stringify(defaults));
+        return defaults;
+      }
+      
+      // Auto-migrate and standardise any existing/old schema items
+      let migrated = false;
+      const updatedItems = items.map(item => {
+        const newItem = { ...item };
+        
+        // Migrate old predicted keys if present
+        if (newItem.predicted_category && !newItem.category) {
+          newItem.category = newItem.predicted_category;
+          migrated = true;
         }
-      ];
-      localStorage.setItem('mock_feedloop_items', JSON.stringify(defaults));
-      return defaults;
+        if (newItem.predicted_type && !newItem.feedback_type) {
+          newItem.feedback_type = newItem.predicted_type;
+          migrated = true;
+        }
+        
+        // Clean status name
+        if (newItem.status === 'OPEN') {
+          newItem.status = 'New';
+          migrated = true;
+        }
+        
+        // Standardise categories: 'Login', 'Payment', 'UI/UX', 'Performance', 'Others'
+        const categoryMap = {
+          "Billing & Payment": "Payment",
+          "User Interface": "UI/UX",
+          "Customer Support": "Others",
+          "System Error": "Performance",
+          "Feature Request": "Others",
+          "General": "Others"
+        };
+        if (categoryMap[newItem.category]) {
+          newItem.category = categoryMap[newItem.category];
+          migrated = true;
+        } else if (!newItem.category) {
+          newItem.category = "Others";
+          migrated = true;
+        }
+        
+        // Standardise feedback types: 'Bug', 'Feature Request', 'Praise'
+        const typeMap = {
+          "Bug / Issue": "Bug",
+          "Praise / Positive": "Praise"
+        };
+        if (typeMap[newItem.feedback_type]) {
+          newItem.feedback_type = typeMap[newItem.feedback_type];
+          migrated = true;
+        } else if (!newItem.feedback_type) {
+          newItem.feedback_type = "Bug";
+          migrated = true;
+        }
+        
+        // Fill missing summary
+        if (!newItem.ai_summary) {
+          let summary = newItem.raw_text.split('. ')[0].substring(0, 50);
+          if (summary.length < newItem.raw_text.length) summary += "...";
+          newItem.ai_summary = summary;
+          migrated = true;
+        }
+        
+        return newItem;
+      });
+      
+      if (migrated) {
+        localStorage.setItem('mock_feedloop_items', JSON.stringify(updatedItems));
+      }
+      
+      return updatedItems;
     };
     
     const setMockItems = (items) => {
       localStorage.setItem('mock_feedloop_items', JSON.stringify(items));
     };
 
-    if (url.startsWith('/api/feedback/list')) {
+    if (url.includes('/api/feedback/list')) {
       const items = getMockItems();
       return { data: items, status: 200, statusText: 'OK', headers: {}, config };
     }
     
-    if (url.startsWith('/api/feedback/stats')) {
+    if (url.includes('/api/feedback/stats')) {
       const items = getMockItems();
       const stats = {
         total_count: items.length,
-        bug_count: items.filter(i => i.feedback_type === 'Bug / Issue').length,
+        bug_count: items.filter(i => i.feedback_type === 'Bug').length,
         feature_count: items.filter(i => i.feedback_type === 'Feature Request').length,
-        praise_count: items.filter(i => i.feedback_type === 'Praise / Positive').length,
+        praise_count: items.filter(i => i.feedback_type === 'Praise').length,
         average_urgency: items.length > 0 ? parseFloat((items.reduce((acc, curr) => acc + curr.urgency_score, 0) / items.length).toFixed(1)) : 0.0,
         category_distribution: items.reduce((acc, curr) => {
           acc[curr.category] = (acc[curr.category] || 0) + 1;
@@ -104,31 +178,53 @@ if (isMockMode) {
       return { data: stats, status: 200, statusText: 'OK', headers: {}, config };
     }
     
-    if (url.startsWith('/api/feedback/submit') && method === 'post') {
+    if (url.includes('/api/feedback/submit') && method === 'post') {
       const items = getMockItems();
       const text = parsedData.raw_text;
       
-      let category = "General";
-      let type = "Praise / Positive";
+      let category = "Others";
+      let type = "Praise";
       let urgency = 1;
       let sentiment = 0.5;
       
       const lower = text.toLowerCase();
-      if (lower.includes('crash') || lower.includes('error') || lower.includes('bug') || lower.includes('fail')) {
-        category = "System Error";
-        type = "Bug / Issue";
+      if (lower.includes('login') || lower.includes('auth') || lower.includes('token') || lower.includes('password') || lower.includes('register') || lower.includes('sign in')) {
+        category = "Login";
+        type = "Bug";
+        urgency = 3;
+        sentiment = -0.3;
+      } else if (lower.includes('payment') || lower.includes('buy') || lower.includes('checkout') || lower.includes('pay') || lower.includes('billing') || lower.includes('card') || lower.includes('transaction')) {
+        category = "Payment";
+        type = "Bug";
         urgency = 5;
-        sentiment = -0.7;
-      } else if (lower.includes('payment') || lower.includes('buy') || lower.includes('checkout') || lower.includes('price')) {
-        category = "Billing & Payment";
-        type = "Bug / Issue";
+        sentiment = -0.6;
+      } else if (lower.includes('slow') || lower.includes('performance') || lower.includes('lag') || lower.includes('speed') || lower.includes('rendering') || lower.includes('freeze') || lower.includes('hang')) {
+        category = "Performance";
+        type = "Bug";
         urgency = 4;
-        sentiment = -0.2;
-      } else if (lower.includes('feature') || lower.includes('add') || lower.includes('could we') || lower.includes('should be')) {
-        category = "Feature Request";
+        sentiment = -0.4;
+      } else if (lower.includes('ui') || lower.includes('dark mode') || lower.includes('theme') || lower.includes('button') || lower.includes('layout') || lower.includes('color') || lower.includes('screen')) {
+        category = "UI/UX";
+        if (lower.includes('add') || lower.includes('request') || lower.includes('please') || lower.includes('could we') || lower.includes('suggest')) {
+          type = "Feature Request";
+          urgency = 2;
+          sentiment = 0.1;
+        } else {
+          type = "Praise";
+          urgency = 1;
+          sentiment = 0.8;
+        }
+      } else if (lower.includes('feature') || lower.includes('add') || lower.includes('could we') || lower.includes('should be') || lower.includes('suggest')) {
+        category = "Others";
         type = "Feature Request";
         urgency = 2;
         sentiment = 0.1;
+      }
+
+      if (type === "Praise" && (lower.includes('crash') || lower.includes('error') || lower.includes('bug') || lower.includes('fail') || lower.includes('broken'))) {
+        type = "Bug";
+        urgency = 4;
+        sentiment = -0.5;
       }
       
       let summary = text.split('. ')[0].substring(0, 50);
@@ -142,7 +238,7 @@ if (isMockMode) {
         feedback_type: type,
         sentiment_polarity: sentiment,
         urgency_score: urgency,
-        status: "OPEN",
+        status: "New",
         source: parsedData.source || 'App Store',
         creator_email: parsedData.email || 'anonymous@demo.com',
         created_at: new Date().toISOString()
@@ -167,9 +263,9 @@ if (isMockMode) {
       }
     }
     
-    if (url.startsWith('/api/roadmap/generate') && method === 'post') {
+    if (url.includes('/api/roadmap/generate') && method === 'post') {
       const items = getMockItems();
-      const openBugs = items.filter(i => i.status === 'OPEN' && i.feedback_type === 'Bug / Issue');
+      const openBugs = items.filter(i => i.status !== 'Resolved' && i.feedback_type === 'Bug');
       const features = items.filter(i => i.feedback_type === 'Feature Request');
       
       const roadmapText = `🚀 GENERATED MOCK SPRINT PLANNING ROADMAP\n\n` +
@@ -182,22 +278,23 @@ if (isMockMode) {
       return { data: { roadmap: roadmapText }, status: 200, statusText: 'OK', headers: {}, config };
     }
     
-    if (url.startsWith('/api/chat') && method === 'post') {
+    if (url.includes('/api/chat') && method === 'post') {
       const query = parsedData.query.toLowerCase();
       const items = getMockItems();
       
-      let reply = "I searched through the local support database, but couldn't find matches. Try asking about checkout bugs or UI dark mode.";
-      let matches = [];
+      // Dynamic semantic search mock
+      const matches = items.filter(item => {
+        return query.split(' ').some(word => word.length > 3 && item.raw_text.toLowerCase().includes(word));
+      });
       
-      if (query.includes('payment') || query.includes('apple pay') || query.includes('checkout') || query.includes('billing')) {
-        matches = items.filter(i => i.raw_text.toLowerCase().includes('payment') || i.raw_text.toLowerCase().includes('apple pay') || i.raw_text.toLowerCase().includes('checkout'));
-        reply = `I found ${matches.length} ticket(s) related to payments/checkout. The main concern appears to be checkout stability with Apple Pay.`;
-      } else if (query.includes('ui') || query.includes('dark mode') || query.includes('interface') || query.includes('search')) {
-        matches = items.filter(i => i.raw_text.toLowerCase().includes('dark') || i.raw_text.toLowerCase().includes('ui') || i.raw_text.toLowerCase().includes('search'));
-        reply = `I found ${matches.length} ticket(s) mentioning user interface details. Users love the dark mode but are requesting search filters.`;
-      } else if (query.includes('support') || query.includes('service') || query.includes('slow')) {
-        matches = items.filter(i => i.raw_text.toLowerCase().includes('support') || i.raw_text.toLowerCase().includes('service') || i.raw_text.toLowerCase().includes('slow'));
-        reply = `I found ${matches.length} ticket(s) discussing customer support responsiveness issues.`;
+      let reply = "";
+      if (matches.length > 0) {
+        reply = `Based on my analysis of the support tickets, I found ${matches.length} relevant logs. Summary of the findings:\n\n`;
+        matches.forEach(m => {
+          reply += `• **[${m.category}]** ${m.ai_summary} (Urgency: ${m.urgency_score}/5, Status: ${m.status})\n`;
+        });
+      } else {
+        reply = "I searched through the local support database but couldn't find matches. Try asking about payment bugs, dark mode UI, or slow performance.";
       }
       
       return { 
@@ -218,7 +315,7 @@ if (isMockMode) {
       };
     }
     
-    if (url.startsWith('/api/feedback/clear') && method === 'post') {
+    if (url.includes('/api/feedback/clear') && method === 'post') {
       setMockItems([]);
       return { data: { success: true }, status: 200, statusText: 'OK', headers: {}, config };
     }
