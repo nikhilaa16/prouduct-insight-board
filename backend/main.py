@@ -8,7 +8,6 @@ import os
 
 from database import init_db, get_db, FeedbackItem
 from ai_classifier import analyze_feedback
-from analytics import get_summary_stats, get_trend_chart, get_category_chart, get_churn_risk, get_anomalies
 
 app = FastAPI(title="FeedLoop AI: Customer Experience & Support Analytics API")
 
@@ -313,54 +312,3 @@ def clear_feedback(db: Session = Depends(get_db)):
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Error resetting database: {e}")
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# DATA SCIENCE ANALYTICS ENDPOINTS
-# ─────────────────────────────────────────────────────────────────────────────
-
-@app.get("/api/analytics/stats")
-def analytics_stats(db: Session = Depends(get_db)):
-    """EDA + Statistical Analysis: descriptive stats on all feedback data."""
-    return get_summary_stats(db)
-
-
-@app.get("/api/analytics/trends")
-def analytics_trends(db: Session = Depends(get_db)):
-    """Time Series Analysis: daily volume + rolling urgency trend chart."""
-    chart = get_trend_chart(db)
-    if not chart:
-        return {"chart": None, "message": "Not enough data for trend analysis. Add more feedback first."}
-    return {"chart": chart}
-
-
-@app.get("/api/analytics/heatmap")
-def analytics_heatmap(db: Session = Depends(get_db)):
-    """EDA Visualization: urgency heatmap across categories and feedback types."""
-    chart = get_category_chart(db)
-    if not chart:
-        return {"chart": None, "message": "Not enough data for heatmap analysis."}
-    return {"chart": chart}
-
-
-@app.get("/api/analytics/churn")
-def analytics_churn(db: Session = Depends(get_db)):
-    """Predictive Analytics: customer churn risk scoring based on feedback patterns."""
-    results = get_churn_risk(db)
-    high_risk   = [r for r in results if r["risk_level"] == "High"]
-    medium_risk = [r for r in results if r["risk_level"] == "Medium"]
-    low_risk    = [r for r in results if r["risk_level"] == "Low"]
-    return {
-        "total_customers": len(results),
-        "high_risk_count": len(high_risk),
-        "medium_risk_count": len(medium_risk),
-        "low_risk_count": len(low_risk),
-        "customers": results
-    }
-
-
-@app.get("/api/analytics/anomalies")
-def analytics_anomalies(db: Session = Depends(get_db)):
-    """Anomaly Detection: Z-score based spike detection for volume and urgency."""
-    return get_anomalies(db)
-
