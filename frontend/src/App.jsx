@@ -332,7 +332,8 @@ import {
 } from 'recharts';
 import { 
   MessageSquare, AlertTriangle, Lightbulb, Star, Filter, 
-  Send, RefreshCw, Layers, CheckCircle2, Database, Search, Trash2
+  Send, RefreshCw, Layers, CheckCircle2, Database, Search, Trash2,
+  TrendingUp, Users, Zap, Activity
 } from 'lucide-react';
 
 export default function App() {
@@ -374,6 +375,15 @@ export default function App() {
     }
   ]);
 
+  // ── Data Science Analytics State ─────────────────────────────────────────
+  const [dsStats, setDsStats]         = useState(null);
+  const [trendChart, setTrendChart]   = useState(null);
+  const [heatmapChart, setHeatmapChart] = useState(null);
+  const [churnData, setChurnData]     = useState(null);
+  const [anomalies, setAnomalies]     = useState(null);
+  const [dsLoading, setDsLoading]     = useState(false);
+  const [dsTab, setDsTab]             = useState('overview');
+
   // Load Data
   const fetchData = async () => {
     try {
@@ -392,6 +402,30 @@ export default function App() {
       setStats(statsRes.data);
     } catch (err) {
       console.error("Error fetching data:", err);
+    }
+  };
+
+  // Fetch DS Analytics from backend
+  const fetchAnalytics = async () => {
+    if (isMockMode) return; // DS analytics requires real backend
+    setDsLoading(true);
+    try {
+      const [statsRes, trendsRes, heatmapRes, churnRes, anomalyRes] = await Promise.all([
+        axios.get('/api/analytics/stats'),
+        axios.get('/api/analytics/trends'),
+        axios.get('/api/analytics/heatmap'),
+        axios.get('/api/analytics/churn'),
+        axios.get('/api/analytics/anomalies'),
+      ]);
+      setDsStats(statsRes.data);
+      setTrendChart(trendsRes.data.chart || null);
+      setHeatmapChart(heatmapRes.data.chart || null);
+      setChurnData(churnRes.data);
+      setAnomalies(anomalyRes.data);
+    } catch (err) {
+      console.error('DS Analytics fetch error:', err);
+    } finally {
+      setDsLoading(false);
     }
   };
 
@@ -1031,7 +1065,7 @@ export default function App() {
 
       {/* AI Sprint Roadmap Planner Section */}
       {stats.total_count > 0 && (
-        <section className="max-w-7xl mx-auto w-full px-6 pb-12">
+        <section className="max-w-7xl mx-auto w-full px-6 pb-8">
           <div className="bg-gradient-to-b from-[#18181B] to-[#09090B] border border-[#27272A] rounded-2xl p-6 shadow-xl relative overflow-hidden">
             <div className="absolute top-0 right-0 w-64 h-64 bg-[#2563EB]/5 rounded-full blur-3xl pointer-events-none"></div>
 
@@ -1054,16 +1088,307 @@ export default function App() {
               </button>
             </div>
 
-            {/* Generated Roadmap Display */}
             {roadmap && (
               <div className="bg-[#09090B]/80 border border-[#27272A] rounded-xl p-5 overflow-y-auto text-xs text-slate-350 leading-relaxed font-mono whitespace-pre-wrap">
                 {roadmap}
               </div>
             )}
-
           </div>
         </section>
       )}
+
+      {/* ══════════════════════════════════════════════════════════════════ */}
+      {/* DATA SCIENCE ANALYTICS PANEL                                      */}
+      {/* ══════════════════════════════════════════════════════════════════ */}
+      <section className="max-w-7xl mx-auto w-full px-6 pb-12">
+        <div className="bg-gradient-to-b from-[#18181B] to-[#09090B] border border-[#27272A] rounded-2xl p-6 shadow-xl relative overflow-hidden">
+          <div className="absolute bottom-0 left-0 w-72 h-72 bg-[#6366f1]/5 rounded-full blur-3xl pointer-events-none"></div>
+
+          {/* DS Panel Header */}
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+            <div>
+              <h2 className="text-base font-bold text-slate-200 flex items-center gap-2">
+                <TrendingUp className="h-5 w-5 text-[#6366f1]" />
+                Data Science Analytics Engine
+              </h2>
+              <p className="text-xs text-[#94a3b8] mt-1">
+                Pandas · NumPy · Matplotlib · Seaborn — Trend analysis, churn risk scoring & anomaly detection
+              </p>
+            </div>
+            <button
+              onClick={fetchAnalytics}
+              disabled={dsLoading}
+              className="flex items-center gap-2 py-2 px-5 rounded-xl bg-gradient-to-r from-[#6366f1] to-[#818cf8] hover:brightness-110 text-white font-bold text-xs transition-all duration-200 active:scale-98 disabled:opacity-50"
+            >
+              {dsLoading
+                ? <RefreshCw className="h-4 w-4 animate-spin text-white" />
+                : <Activity className="h-4 w-4 text-white" />}
+              Run DS Analysis
+            </button>
+          </div>
+
+          {/* Mock Mode Notice */}
+          {isMockMode && (
+            <div className="bg-[#6366f1]/10 border border-[#6366f1]/20 rounded-xl p-4 text-xs text-[#818cf8] mb-4">
+              ⚠️ Data Science Analytics requires a live FastAPI + PostgreSQL backend. Run the backend locally to enable this panel.
+            </div>
+          )}
+
+          {/* Tab Navigation */}
+          {!isMockMode && (
+            <div className="flex gap-1 mb-6 bg-[#09090B]/60 rounded-xl p-1 w-fit">
+              {[
+                { id: 'overview',  label: 'Overview',      icon: Activity },
+                { id: 'trends',    label: 'Trend Analysis', icon: TrendingUp },
+                { id: 'heatmap',   label: 'Hotspot Map',   icon: Zap },
+                { id: 'churn',     label: 'Churn Risk',    icon: Users },
+                { id: 'anomalies', label: 'Anomalies',     icon: AlertTriangle },
+              ].map(({ id, label, icon: Icon }) => (
+                <button
+                  key={id}
+                  onClick={() => setDsTab(id)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 ${
+                    dsTab === id
+                      ? 'bg-[#6366f1] text-white shadow-md'
+                      : 'text-[#94a3b8] hover:text-slate-200 hover:bg-[#27272A]/50'
+                  }`}
+                >
+                  <Icon className="h-3 w-3" />
+                  {label}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Loading State */}
+          {dsLoading && (
+            <div className="flex items-center justify-center py-16 text-[#6366f1] gap-3">
+              <RefreshCw className="h-6 w-6 animate-spin" />
+              <span className="text-sm font-medium">Running Pandas analysis on feedback database...</span>
+            </div>
+          )}
+
+          {/* No Data State */}
+          {!dsLoading && !dsStats && !isMockMode && (
+            <div className="text-center py-12 text-[#94a3b8]">
+              <TrendingUp className="h-10 w-10 mx-auto mb-3 opacity-30" />
+              <p className="text-sm font-medium">Click "Run DS Analysis" to generate insights</p>
+              <p className="text-xs mt-1 opacity-60">Analyses your ticket database using Pandas, NumPy & Seaborn</p>
+            </div>
+          )}
+
+          {/* ── TAB: OVERVIEW ─────────────────────────────────────────────── */}
+          {!dsLoading && dsStats && dsTab === 'overview' && (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {[
+                { label: 'Total Feedback',    value: dsStats.total_feedback,     color: '#6366f1', sub: 'tickets' },
+                { label: 'Mean Urgency',      value: dsStats.mean_urgency,       color: '#f59e0b', sub: '/ 5.0' },
+                { label: 'Std Deviation',     value: dsStats.std_urgency,        color: '#3b82f6', sub: 'urgency spread' },
+                { label: 'High Urgency',      value: dsStats.high_urgency_count, color: '#ef4444', sub: 'tickets ≥ 4' },
+                { label: 'Resolved Rate',     value: `${dsStats.resolved_rate}%`, color: '#10b981', sub: 'of all tickets' },
+                { label: 'Median Urgency',    value: dsStats.median_urgency,     color: '#8b5cf6', sub: '/ 5.0' },
+                { label: 'Bug Reports',       value: dsStats.type_counts?.['Bug'] || 0, color: '#ef4444', sub: 'defects logged' },
+                { label: 'Feature Requests',  value: dsStats.type_counts?.['Feature Request'] || 0, color: '#f59e0b', sub: 'improvements' },
+              ].map((stat, i) => (
+                <div key={i} className="bg-[#09090B]/60 border border-[#27272A] rounded-xl p-4">
+                  <p className="text-[10px] font-semibold uppercase tracking-wider mb-2" style={{ color: stat.color }}>
+                    {stat.label}
+                  </p>
+                  <p className="text-2xl font-bold text-white">{stat.value}</p>
+                  <p className="text-[10px] text-[#94a3b8] mt-1">{stat.sub}</p>
+                </div>
+              ))}
+              {/* Category breakdown */}
+              <div className="col-span-2 md:col-span-4 bg-[#09090B]/60 border border-[#27272A] rounded-xl p-4">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-[#6366f1] mb-3">Category Distribution</p>
+                <div className="flex flex-wrap gap-2">
+                  {Object.entries(dsStats.category_counts || {}).map(([cat, count]) => (
+                    <span key={cat} className="px-3 py-1 rounded-full text-xs font-semibold bg-[#6366f1]/10 text-[#818cf8] border border-[#6366f1]/20">
+                      {cat}: {count}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ── TAB: TREND ANALYSIS ───────────────────────────────────────── */}
+          {!dsLoading && dsTab === 'trends' && (
+            <div>
+              {trendChart ? (
+                <div className="flex flex-col gap-2">
+                  <p className="text-xs text-[#94a3b8] mb-2">
+                    📈 Time series analysis: daily feedback volume + 3-day rolling urgency average (generated by Matplotlib)
+                  </p>
+                  <img
+                    src={`data:image/png;base64,${trendChart}`}
+                    alt="Feedback Trend Analysis"
+                    className="rounded-xl border border-[#27272A] w-full"
+                  />
+                </div>
+              ) : (
+                <div className="text-center py-12 text-[#94a3b8]">
+                  <p className="text-sm">Not enough data for trend analysis.</p>
+                  <p className="text-xs mt-1">Add more feedback across different dates to generate trends.</p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── TAB: HOTSPOT HEATMAP ──────────────────────────────────────── */}
+          {!dsLoading && dsTab === 'heatmap' && (
+            <div>
+              {heatmapChart ? (
+                <div className="flex flex-col gap-2">
+                  <p className="text-xs text-[#94a3b8] mb-2">
+                    🔥 Category hotspot analysis: avg urgency per category × type (generated by Seaborn)
+                  </p>
+                  <img
+                    src={`data:image/png;base64,${heatmapChart}`}
+                    alt="Category Hotspot Heatmap"
+                    className="rounded-xl border border-[#27272A] w-full max-w-2xl mx-auto"
+                  />
+                </div>
+              ) : (
+                <div className="text-center py-12 text-[#94a3b8]">
+                  <p className="text-sm">Not enough data for heatmap.</p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── TAB: CHURN RISK ───────────────────────────────────────────── */}
+          {!dsLoading && dsTab === 'churn' && churnData && (
+            <div>
+              {/* Risk Summary Cards */}
+              <div className="grid grid-cols-3 gap-4 mb-6">
+                <div className="bg-[#ef4444]/10 border border-[#ef4444]/20 rounded-xl p-4 text-center">
+                  <p className="text-2xl font-bold text-[#ef4444]">{churnData.high_risk_count}</p>
+                  <p className="text-xs text-[#94a3b8] mt-1">High Risk</p>
+                </div>
+                <div className="bg-[#f59e0b]/10 border border-[#f59e0b]/20 rounded-xl p-4 text-center">
+                  <p className="text-2xl font-bold text-[#f59e0b]">{churnData.medium_risk_count}</p>
+                  <p className="text-xs text-[#94a3b8] mt-1">Medium Risk</p>
+                </div>
+                <div className="bg-[#10b981]/10 border border-[#10b981]/20 rounded-xl p-4 text-center">
+                  <p className="text-2xl font-bold text-[#10b981]">{churnData.low_risk_count}</p>
+                  <p className="text-xs text-[#94a3b8] mt-1">Low Risk</p>
+                </div>
+              </div>
+
+              {churnData.customers.length === 0 ? (
+                <div className="text-center py-8 text-[#94a3b8] text-sm">
+                  No customers with email addresses found. Add feedback with customer emails to enable churn scoring.
+                </div>
+              ) : (
+                <div className="overflow-x-auto rounded-xl border border-[#27272A]">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="border-b border-[#27272A] bg-[#18181B]/50 text-[#94a3b8] font-semibold uppercase tracking-wider">
+                        <th className="py-3 px-4 text-left">Customer</th>
+                        <th className="py-3 px-4 text-center">Risk Score</th>
+                        <th className="py-3 px-4 text-center">Risk Level</th>
+                        <th className="py-3 px-4 text-center">Tickets</th>
+                        <th className="py-3 px-4 text-center">Bugs</th>
+                        <th className="py-3 px-4 text-center">Avg Urgency</th>
+                        <th className="py-3 px-4 text-center">Unresolved %</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#27272A]/60">
+                      {churnData.customers.map((c, i) => (
+                        <tr key={i} className="hover:bg-[#27272A]/20 transition-colors">
+                          <td className="py-3 px-4 text-slate-300 font-mono">{c.customer_email}</td>
+                          <td className="py-3 px-4 text-center">
+                            <div className="flex items-center justify-center gap-2">
+                              <div className="h-1.5 w-16 rounded-full bg-[#27272A] overflow-hidden">
+                                <div
+                                  className="h-full rounded-full transition-all"
+                                  style={{
+                                    width: `${c.churn_risk_score}%`,
+                                    backgroundColor: c.risk_level === 'High' ? '#ef4444' : c.risk_level === 'Medium' ? '#f59e0b' : '#10b981'
+                                  }}
+                                />
+                              </div>
+                              <span className="font-bold text-slate-200">{c.churn_risk_score}</span>
+                            </div>
+                          </td>
+                          <td className="py-3 px-4 text-center">
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                              c.risk_level === 'High'   ? 'bg-[#ef4444]/10 text-[#ef4444] border border-[#ef4444]/20' :
+                              c.risk_level === 'Medium' ? 'bg-[#f59e0b]/10 text-[#f59e0b] border border-[#f59e0b]/20' :
+                                                          'bg-[#10b981]/10 text-[#10b981] border border-[#10b981]/20'
+                            }`}>
+                              {c.risk_level}
+                            </span>
+                          </td>
+                          <td className="py-3 px-4 text-center text-slate-400">{c.total_tickets}</td>
+                          <td className="py-3 px-4 text-center text-[#ef4444]">{c.bug_count}</td>
+                          <td className="py-3 px-4 text-center text-[#f59e0b]">{c.avg_urgency}</td>
+                          <td className="py-3 px-4 text-center text-slate-400">{c.unresolved_ratio}%</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── TAB: ANOMALY DETECTION ────────────────────────────────────── */}
+          {!dsLoading && dsTab === 'anomalies' && anomalies && (
+            <div className="flex flex-col gap-6">
+              <p className="text-xs text-[#94a3b8]">
+                ⚡ Z-score anomaly detection — flags days where feedback volume or urgency deviated significantly from the mean (threshold: Z &gt; 1.8)
+              </p>
+
+              {/* Volume Anomalies */}
+              <div>
+                <h3 className="text-xs font-bold text-[#94a3b8] uppercase tracking-wider mb-3 flex items-center gap-2">
+                  <AlertTriangle className="h-3.5 w-3.5 text-[#ef4444]" />
+                  Volume Spike Anomalies
+                </h3>
+                {anomalies.volume_anomalies.length === 0 ? (
+                  <p className="text-xs text-[#94a3b8] bg-[#10b981]/10 border border-[#10b981]/20 rounded-xl p-3">
+                    ✅ No abnormal volume spikes detected. Feedback volume is stable.
+                  </p>
+                ) : (
+                  <div className="flex flex-col gap-2">
+                    {anomalies.volume_anomalies.map((a, i) => (
+                      <div key={i} className="flex items-center justify-between bg-[#ef4444]/10 border border-[#ef4444]/20 rounded-xl px-4 py-3">
+                        <span className="text-xs text-slate-300 font-mono">{a.date}</span>
+                        <span className="text-xs text-[#ef4444] font-bold">{a.volume} tickets (Z={a.volume_z})</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Urgency Anomalies */}
+              <div>
+                <h3 className="text-xs font-bold text-[#94a3b8] uppercase tracking-wider mb-3 flex items-center gap-2">
+                  <Zap className="h-3.5 w-3.5 text-[#f59e0b]" />
+                  Urgency Spike Anomalies
+                </h3>
+                {anomalies.urgency_anomalies.length === 0 ? (
+                  <p className="text-xs text-[#94a3b8] bg-[#10b981]/10 border border-[#10b981]/20 rounded-xl p-3">
+                    ✅ No abnormal urgency spikes detected. Urgency levels are stable.
+                  </p>
+                ) : (
+                  <div className="flex flex-col gap-2">
+                    {anomalies.urgency_anomalies.map((a, i) => (
+                      <div key={i} className="flex items-center justify-between bg-[#f59e0b]/10 border border-[#f59e0b]/20 rounded-xl px-4 py-3">
+                        <span className="text-xs text-slate-300 font-mono">{a.date}</span>
+                        <span className="text-xs text-[#f59e0b] font-bold">Avg urgency {a.avg_urgency}/5 (Z={a.urgency_z})</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+        </div>
+      </section>
 
       {/* Footer bar */}
       <footer className="border-t border-[#27272A] bg-slate-950/20 px-6 py-4 text-center text-[10px] text-slate-650 font-semibold tracking-wide">
